@@ -174,7 +174,7 @@ pub(crate) fn apply_constraints<'a, T: Constrainable + Sync>(
 #[cfg(feature = "zlob")]
 type GlobPattern = zlob::ZlobPattern;
 #[cfg(not(feature = "zlob"))]
-type CompiledGlob = globset::GlobMatcher;
+type GlobPattern = globset::GlobMatcher;
 
 /// How `Constraint::Glob` is evaluated for each item.
 enum GlobStrategy {
@@ -227,7 +227,8 @@ impl<'q, 'c> ConstraintPlan<'q, 'c> {
                 _ => rest.push(c),
             }
         }
-        let has_pre_filter = !extensions.is_empty() || rest.iter().any(|c| !is_glob_node(*c));
+        let has_pre_filter =
+            !extensions.is_empty() || rest.iter().any(|&c| !is_glob_node(c));
         let glob = build_glob_strategy(&rest, has_pre_filter, items, arena);
         Self {
             extensions,
