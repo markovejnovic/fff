@@ -11,8 +11,15 @@ path = "src/main.rs"
 
 [dependencies]
 fff-ipc-domain = { path = "../fff-ipc-domain" }
-iceoryx2 = { workspace = true, features = ["tracing"] }
+rkyv = { workspace = true }
+sendfd = "0.4"
 clap = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+bytesize = "2"
 mimalloc = { workspace = true }
+git2 = { workspace = true }
+which = "8.0.3"
+
+[lints]
+workspace = true

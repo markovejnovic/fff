@@ -47,10 +47,10 @@ regex = "1.11"
 regex-syntax = "0.8"
 smallvec = { version = "1.13", features = ["const_generics", "union"] }
 thiserror = "2.0.10"
-tracing = "0.1"
+tracing = { version = "0.1", features = ["release_max_level_debug"] }
+rkyv = { version = "0.8" }
 clap = { version = "4", features = ["derive", "env"] }
-iceoryx2 = { version = "0.9", default-features = false, features = ["std"] }
-signal-hook = "0.3"
+libc = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [profile.release]
@@ -75,3 +75,6 @@ inherits = "release"
 debug = "full"
 strip = false
 lto = "thin"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
