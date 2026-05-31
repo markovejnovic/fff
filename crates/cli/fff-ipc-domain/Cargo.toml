@@ -1,0 +1,10 @@
+[package]
+name = "fff-ipc-domain"
+version = "0.0.1"
+edition = "2024"
+description = "FFF domain types for IPC."
+license = "MIT"
+
+[dependencies]
+iceoryx2 = { workspace = true }
+thiserror = { workspace = true }

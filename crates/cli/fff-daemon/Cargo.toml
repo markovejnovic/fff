@@ -1,0 +1,19 @@
+[package]
+name = "fff-daemon"
+version = "0.0.1"
+edition = "2024"
+description = "FFF daemon — serves IPC requests over shared memory."
+license = "MIT"
+
+[[bin]]
+name = "fff-daemon"
+path = "src/main.rs"
+
+[dependencies]
+fff-ipc-domain = { path = "../fff-ipc-domain" }
+iceoryx2 = { workspace = true, features = ["tracing"] }
+clap = { workspace = true }
+signal-hook = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+mimalloc = { workspace = true }
