@@ -3,8 +3,8 @@ mod hay;
 #[path = "rg_compat/util.rs"]
 mod util;
 
-use hay::SHERLOCK;
-use util::Dir;
+use hay::{PROJECT, SHERLOCK};
+use util::{Dir, assert_rg_match};
 
 #[test]
 fn smoke_basic_search() {
@@ -299,4 +299,101 @@ fn max_count() {
     let lines: Vec<&str> = out.lines().filter(|l| *l != "--").collect();
     assert_eq!(lines.len(), 1, "max-count 1 should return 1 line, got: {out}");
     assert!(lines[0].contains("Sherlock"));
+}
+
+// --- inline mode: fff-rg vs rg comparison tests ---
+
+#[test]
+fn vs_rg_inline_basic() {
+    let dir = Dir::new("vs_inline_basic");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "fn"], false);
+}
+
+#[test]
+fn vs_rg_inline_line_numbers() {
+    let dir = Dir::new("vs_inline_ln");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-n", "fn"], false);
+}
+
+#[test]
+fn vs_rg_inline_column() {
+    let dir = Dir::new("vs_inline_col");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-n", "--column", "fn"], false);
+}
+
+#[test]
+fn vs_rg_inline_no_filename() {
+    let dir = Dir::new("vs_inline_nofile");
+    dir.create("solo.txt", "hello world\nfoo bar\nhello again\n");
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-I", "-n", "hello", "solo.txt"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_inline_case_insensitive() {
+    let dir = Dir::new("vs_inline_ci");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-i", "config"], false);
+}
+
+#[test]
+fn vs_rg_inline_case_sensitive() {
+    let dir = Dir::new("vs_inline_cs");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-s", "Config"], false);
+}
+
+#[test]
+fn vs_rg_inline_smart_case_lower() {
+    let dir = Dir::new("vs_inline_sc_lo");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-S", "config"], false);
+}
+
+#[test]
+fn vs_rg_inline_smart_case_upper() {
+    let dir = Dir::new("vs_inline_sc_up");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-S", "Config"], false);
+}
+
+#[test]
+fn vs_rg_inline_fixed_strings() {
+    let dir = Dir::new("vs_inline_fixed");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-F", "HashMap"], false);
+}
+
+#[test]
+fn vs_rg_inline_count() {
+    let dir = Dir::new("vs_inline_count");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-c", "fn"], false);
+}
+
+#[test]
+fn vs_rg_inline_files_with_matches() {
+    let dir = Dir::new("vs_inline_files");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-l", "fn"], false);
+}
+
+#[test]
+fn vs_rg_inline_max_count() {
+    let dir = Dir::new("vs_inline_maxc");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-m1", "fn"], false);
+}
+
+#[test]
+fn vs_rg_inline_trim() {
+    let dir = Dir::new("vs_inline_trim");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "--trim", "let"], false);
 }
