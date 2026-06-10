@@ -3,8 +3,10 @@ mod hay;
 #[path = "rg_compat/util.rs"]
 mod util;
 
+use std::process::Command;
+
 use hay::{PROJECT, SHERLOCK};
-use util::{Dir, assert_rg_match};
+use util::{Dir, assert_rg_match, find_binary, normalize_inline};
 
 #[test]
 fn smoke_basic_search() {
@@ -830,4 +832,141 @@ fn vs_rg_combo_vimgrep_fixed_case() {
     dir.with_project(&PROJECT);
     // Use "verbose" — appears once per line (avoids vimgrep multi-match-per-line divergence)
     assert_rg_match(&dir, &["--color=never", "--vimgrep", "-F", "-i", "verbose"], false);
+}
+
+// --- session reuse: warm index consistency ---
+
+#[test]
+fn session_reuse_consistent_results() {
+    let dir = Dir::new("session_reuse");
+    dir.with_project(&PROJECT);
+    let args = &["--color=never", "--no-heading", "-n", "fn"];
+
+    let out1 = dir.command().args(args).full_output();
+    let out2 = dir.command().args(args).full_output();
+    let out3 = dir.command().args(args).full_output();
+
+    assert_eq!(out1.code, out2.code);
+    assert_eq!(out2.code, out3.code);
+
+    let n1 = normalize_inline(&out1.stdout);
+    let n2 = normalize_inline(&out2.stdout);
+    let n3 = normalize_inline(&out3.stdout);
+    assert_eq!(n1, n2, "warm index should return same results as cold");
+    assert_eq!(n2, n3);
+}
+
+#[test]
+fn session_reuse_different_queries() {
+    let dir = Dir::new("session_diff_q");
+    dir.with_project(&PROJECT);
+
+    let out_fn = dir.command().args(&["--color=never", "--no-heading", "fn"]).full_output();
+    let out_config = dir.command().args(&["--color=never", "--no-heading", "Config"]).full_output();
+    let out_none = dir.command().args(&["--color=never", "--no-heading", "ZZZZNOTFOUND"]).full_output();
+
+    assert_eq!(out_fn.code, 0);
+    assert_eq!(out_config.code, 0);
+    assert_eq!(out_none.code, 1);
+    assert!(out_fn.stdout.contains("fn"));
+    assert!(out_config.stdout.contains("Config"));
+    assert!(out_none.stdout.is_empty());
+}
+
+#[test]
+fn session_reuse_alternating_modes() {
+    let dir = Dir::new("session_modes");
+    dir.with_project(&PROJECT);
+
+    let grep1 = dir.command().args(&["--color=never", "--no-heading", "fn"]).full_output();
+    let files = dir.command().args(&["--color=never", "--files"]).full_output();
+    let grep2 = dir.command().args(&["--color=never", "--no-heading", "fn"]).full_output();
+
+    assert_eq!(grep1.code, 0);
+    assert_eq!(files.code, 0);
+    assert_eq!(grep2.code, 0);
+    assert_eq!(
+        normalize_inline(&grep1.stdout),
+        normalize_inline(&grep2.stdout),
+        "grep results should be stable across interleaved files queries"
+    );
+}
+
+// --- concurrency: parallel searches ---
+
+#[test]
+fn concurrent_searches_no_corruption() {
+    let dir = Dir::new("concurrent");
+    dir.with_project(&PROJECT);
+    let dir_path = dir.dir.clone();
+
+    let handles: Vec<_> = (0..8)
+        .map(|i| {
+            let path = dir_path.clone();
+            std::thread::spawn(move || {
+                let bin = find_binary("fff-rg");
+                let output = Command::new(&bin)
+                    .current_dir(&path)
+                    .args(["--color=never", "--no-heading", "-n", "fn"])
+                    .output()
+                    .unwrap();
+                let stdout = String::from_utf8(output.stdout).unwrap();
+                let code = output.status.code().unwrap_or(-1);
+                (i, stdout, code)
+            })
+        })
+        .collect();
+
+    let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+
+    for (i, _, code) in &results {
+        assert_eq!(*code, 0, "thread {i} got exit code {code}");
+    }
+
+    let normalized: Vec<String> = results.iter().map(|(_, out, _)| normalize_inline(out)).collect();
+    for (i, norm) in normalized.iter().enumerate().skip(1) {
+        assert_eq!(
+            &normalized[0], norm,
+            "thread {i} output differs from thread 0"
+        );
+    }
+}
+
+// --- files mode ---
+
+#[test]
+fn vs_rg_files_list() {
+    let dir = Dir::new("vs_files_list");
+    dir.with_project(&PROJECT);
+    let fff = dir.command().args(&["--color=never", "--files"]).full_output();
+    let rg = dir.rg().args(&["--color=never", "--files"]).full_output();
+
+    assert_eq!(fff.code, rg.code, "exit code mismatch");
+
+    let mut fff_lines: Vec<&str> = fff.stdout.lines().collect();
+    let mut rg_lines: Vec<&str> = rg.stdout.lines().collect();
+    fff_lines.sort();
+    rg_lines.sort();
+    assert_eq!(fff_lines, rg_lines, "file listings differ\nfff: {fff_lines:?}\nrg: {rg_lines:?}");
+}
+
+#[test]
+fn files_mode_subdirectories() {
+    let dir = Dir::new("files_subdirs");
+    dir.with_project(&PROJECT);
+    let out = dir.command().args(&["--color=never", "--files"]).full_output();
+    assert_eq!(out.code, 0);
+    let files: Vec<&str> = out.stdout.lines().collect();
+    assert!(files.iter().any(|f| f.contains("src/")), "should find files in src/, got: {files:?}");
+    assert!(files.iter().any(|f| f.contains("tests/")), "should find files in tests/, got: {files:?}");
+    assert!(files.iter().any(|f| f.contains("data/")), "should find files in data/, got: {files:?}");
+}
+
+#[test]
+fn files_mode_quiet() {
+    let dir = Dir::new("files_quiet");
+    dir.with_project(&PROJECT);
+    let out = dir.command().args(&["--color=never", "--files", "-q"]).full_output();
+    assert!(out.stdout.is_empty(), "quiet files should produce no output");
+    assert_eq!(out.code, 0);
 }
