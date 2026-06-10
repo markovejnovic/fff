@@ -183,7 +183,7 @@ pub fn normalize_inline(raw: &str) -> String {
 
 pub fn normalize_heading(raw: &str) -> String {
     let trailing = raw.ends_with('\n');
-    let mut blocks: Vec<&str> = raw.split("\n\n").collect();
+    let mut blocks: Vec<&str> = raw.split("\n\n").filter(|b| !b.is_empty()).collect();
     blocks.sort();
     let mut out = blocks.join("\n\n");
     if trailing && !out.ends_with('\n') {

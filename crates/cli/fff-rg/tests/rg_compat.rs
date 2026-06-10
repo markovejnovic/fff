@@ -397,3 +397,41 @@ fn vs_rg_inline_trim() {
     dir.with_project(&PROJECT);
     assert_rg_match(&dir, &["--color=never", "--no-heading", "--trim", "let"], false);
 }
+
+// --- heading mode: fff-rg vs rg comparison tests ---
+
+#[test]
+fn vs_rg_heading_basic() {
+    let dir = Dir::new("vs_heading_basic");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--heading", "fn"], true);
+}
+
+#[test]
+fn vs_rg_heading_line_numbers() {
+    let dir = Dir::new("vs_heading_ln");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--heading", "-n", "fn"], true);
+}
+
+#[test]
+fn vs_rg_heading_column() {
+    let dir = Dir::new("vs_heading_col");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--heading", "-n", "--column", "Config"], true);
+}
+
+#[test]
+fn vs_rg_heading_count() {
+    let dir = Dir::new("vs_heading_count");
+    dir.with_project(&PROJECT);
+    // -c produces one line per file, no heading blocks — normalize as inline
+    assert_rg_match(&dir, &["--color=never", "--heading", "-c", "fn"], false);
+}
+
+#[test]
+fn vs_rg_heading_max_count() {
+    let dir = Dir::new("vs_heading_maxc");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--heading", "-n", "-m1", "fn"], true);
+}
