@@ -183,7 +183,37 @@ pub fn normalize_inline(raw: &str) -> String {
 
 pub fn normalize_heading(raw: &str) -> String {
     let trailing = raw.ends_with('\n');
-    let mut blocks: Vec<&str> = raw.split("\n\n").filter(|b| !b.is_empty()).collect();
+    // Collapse runs of 2+ newlines to exactly \n\n (rg vs fff-rg differ in blank line counts)
+    let mut collapsed = String::with_capacity(raw.len());
+    let mut newline_run = 0usize;
+    for ch in raw.chars() {
+        if ch == '\n' {
+            newline_run += 1;
+        } else {
+            if newline_run >= 2 {
+                collapsed.push_str("\n\n");
+            } else {
+                for _ in 0..newline_run {
+                    collapsed.push('\n');
+                }
+            }
+            newline_run = 0;
+            collapsed.push(ch);
+        }
+    }
+    if newline_run >= 2 {
+        collapsed.push_str("\n\n");
+    } else {
+        for _ in 0..newline_run {
+            collapsed.push('\n');
+        }
+    }
+
+    let mut blocks: Vec<&str> = collapsed
+        .split("\n\n")
+        .map(|b| b.trim_matches('\n'))
+        .filter(|b| !b.is_empty())
+        .collect();
     blocks.sort();
     let mut out = blocks.join("\n\n");
     if trailing && !out.ends_with('\n') {
