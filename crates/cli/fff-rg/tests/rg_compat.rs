@@ -525,3 +525,83 @@ fn vs_rg_context_separator() {
         false,
     );
 }
+
+// --- vimgrep mode: fff-rg vs rg comparison tests ---
+
+#[test]
+fn vs_rg_vimgrep_basic() {
+    let dir = Dir::new("vs_vimgrep_basic");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--vimgrep", "Config"], false);
+}
+
+#[test]
+fn vs_rg_vimgrep_regex() {
+    let dir = Dir::new("vs_vimgrep_regex");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--vimgrep", "fn\\s+\\w+"], false);
+}
+
+#[test]
+fn vs_rg_vimgrep_fixed() {
+    let dir = Dir::new("vs_vimgrep_fixed");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--vimgrep", "-F", "pub fn"], false);
+}
+
+#[test]
+fn vs_rg_vimgrep_case_insensitive() {
+    let dir = Dir::new("vs_vimgrep_ci");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--vimgrep", "-i", "hashmap"], false);
+}
+
+// --- quiet mode and exit code comparison tests ---
+
+#[test]
+fn vs_rg_quiet_match() {
+    let dir = Dir::new("vs_quiet_match");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "-q", "fn"], false);
+}
+
+#[test]
+fn vs_rg_quiet_no_match() {
+    let dir = Dir::new("vs_quiet_nomatch");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "-q", "ZZZZZ_NEVER_MATCHES"], false);
+}
+
+#[test]
+fn vs_rg_exit_code_match() {
+    let dir = Dir::new("vs_exit_match");
+    dir.with_project(&PROJECT);
+    let fff = dir.command().args(&["--color=never", "fn"]).full_output();
+    let rg = dir.rg().args(&["--color=never", "fn"]).full_output();
+    assert_eq!(fff.code, 0, "fff-rg should exit 0 on match");
+    assert_eq!(rg.code, 0, "rg should exit 0 on match");
+}
+
+#[test]
+fn vs_rg_exit_code_no_match() {
+    let dir = Dir::new("vs_exit_nomatch");
+    dir.with_project(&PROJECT);
+    let fff = dir.command().args(&["--color=never", "ZZZZZ"]).full_output();
+    let rg = dir.rg().args(&["--color=never", "ZZZZZ"]).full_output();
+    assert_eq!(fff.code, 1, "fff-rg should exit 1 on no match");
+    assert_eq!(rg.code, 1, "rg should exit 1 on no match");
+}
+
+#[test]
+fn vs_rg_count_no_match() {
+    let dir = Dir::new("vs_count_nomatch");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "-c", "ZZZZZ_NEVER_MATCHES"], false);
+}
+
+#[test]
+fn vs_rg_files_with_matches_no_match() {
+    let dir = Dir::new("vs_files_nomatch");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "-l", "ZZZZZ_NEVER_MATCHES"], false);
+}
