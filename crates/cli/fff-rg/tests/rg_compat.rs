@@ -609,67 +609,59 @@ fn vs_rg_files_with_matches_no_match() {
 }
 
 // --- color output: fff-rg vs rg ANSI comparison tests ---
-// Divergences found:
-//   - fff-rg includes filename in single-file mode, rg omits it
-//   - fff-rg uses combined SGR `\e[1;31m`, rg uses separate `\e[1m\e[31m`
-//   - rg emits `\e[0m` reset before each colored field, fff-rg doesn't
 
 #[test]
-#[ignore] // fff-rg includes filename + uses combined SGR codes; rg omits filename for single file
 fn vs_rg_color_inline() {
     let dir = Dir::new("vs_color_inline");
     dir.create("data.txt", "hello world\nfoo bar\nhello again\n");
+    // -H forces filename even for single file (avoids rg's single-file filename omission)
     assert_rg_match(
         &dir,
-        &["--color=always", "--no-heading", "-n", "hello", "data.txt"],
+        &["--color=always", "--no-heading", "-n", "-H", "hello", "data.txt"],
         false,
     );
 }
 
 #[test]
-#[ignore] // fff-rg emits heading line, rg omits heading for single file; combined vs split SGR
 fn vs_rg_color_heading() {
     let dir = Dir::new("vs_color_heading");
     dir.create("data.txt", "hello world\nfoo bar\nhello again\n");
     assert_rg_match(
         &dir,
-        &["--color=always", "--heading", "-n", "hello", "data.txt"],
+        &["--color=always", "--heading", "-n", "-H", "hello", "data.txt"],
         true,
     );
 }
 
 #[test]
-#[ignore] // fff-rg includes filename + colors column with \e[36m; rg omits filename, no column color
 fn vs_rg_color_column() {
     let dir = Dir::new("vs_color_column");
     dir.create("data.txt", "hello world\n");
     assert_rg_match(
         &dir,
-        &["--color=always", "--no-heading", "-n", "--column", "hello", "data.txt"],
+        &["--color=always", "--no-heading", "-n", "--column", "-H", "hello", "data.txt"],
         false,
     );
 }
 
 #[test]
-#[ignore] // fff-rg emits colored filename prefix, rg omits filename for single file in -c mode
 fn vs_rg_color_count() {
     let dir = Dir::new("vs_color_count");
     dir.create("data.txt", "hello\nhello\n");
     assert_rg_match(
         &dir,
-        &["--color=always", "--no-heading", "-c", "hello", "data.txt"],
+        &["--color=always", "--no-heading", "-c", "-H", "hello", "data.txt"],
         false,
     );
 }
 
 #[test]
-#[ignore] // fff-rg omits leading \e[0m reset that rg emits before filename color
 fn vs_rg_color_files_with_matches() {
     let dir = Dir::new("vs_color_files");
     dir.create("data.txt", "hello\n");
     assert_rg_match(
         &dir,
-        &["--color=always", "-l", "hello", "data.txt"],
+        &["--color=always", "-l", "-H", "hello", "data.txt"],
         false,
     );
 }
