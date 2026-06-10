@@ -56,7 +56,7 @@ fn ensure_daemon() {
 }
 
 pub struct Dir {
-    dir: PathBuf,
+    pub(crate) dir: PathBuf,
 }
 
 impl Dir {
@@ -92,6 +92,12 @@ impl Dir {
     pub fn command(&self) -> TestCommand {
         let bin = find_binary("fff-rg");
         let mut cmd = Command::new(&bin);
+        cmd.current_dir(&self.dir);
+        TestCommand { cmd, dir: self.dir.clone() }
+    }
+
+    pub fn rg(&self) -> TestCommand {
+        let mut cmd = Command::new("rg");
         cmd.current_dir(&self.dir);
         TestCommand { cmd, dir: self.dir.clone() }
     }
@@ -131,4 +137,66 @@ impl TestCommand {
         let output = self.cmd.output().unwrap();
         output.status.code().unwrap_or(-1)
     }
+
+    pub fn full_output(&mut self) -> Output {
+        let o = self
+            .cmd
+            .output()
+            .unwrap_or_else(|e| panic!("failed to run command: {e}\ndir: {}", self.dir.display()));
+        Output {
+            stdout: String::from_utf8_lossy(&o.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&o.stderr).into_owned(),
+            code: o.status.code().unwrap_or(-1),
+        }
+    }
+}
+
+pub struct Output {
+    pub stdout: String,
+    pub stderr: String,
+    pub code: i32,
+}
+
+pub fn normalize_inline(raw: &str) -> String {
+    let trailing = raw.ends_with('\n');
+    let mut lines: Vec<&str> = raw.lines().collect();
+    lines.sort();
+    let mut out = lines.join("\n");
+    if trailing {
+        out.push('\n');
+    }
+    out
+}
+
+pub fn normalize_heading(raw: &str) -> String {
+    let trailing = raw.ends_with('\n');
+    let mut blocks: Vec<&str> = raw.split("\n\n").collect();
+    blocks.sort();
+    let mut out = blocks.join("\n\n");
+    if trailing && !out.ends_with('\n') {
+        out.push('\n');
+    }
+    out
+}
+
+pub fn assert_rg_match(dir: &Dir, args: &[&str], heading: bool) {
+    let fff_out = dir.command().args(args).full_output();
+    let rg_out = dir.rg().args(args).full_output();
+
+    assert_eq!(
+        fff_out.code, rg_out.code,
+        "exit code mismatch for args {args:?}\nfff-rg stdout:\n{}\nrg stdout:\n{}",
+        fff_out.stdout, rg_out.stdout,
+    );
+
+    let normalize: fn(&str) -> String = if heading { normalize_heading } else { normalize_inline };
+
+    let fff_normalized = normalize(&fff_out.stdout);
+    let rg_normalized = normalize(&rg_out.stdout);
+
+    assert_eq!(
+        fff_normalized, rg_normalized,
+        "stdout mismatch for args {args:?}\nfff-rg raw:\n{}\nrg raw:\n{}",
+        fff_out.stdout, rg_out.stdout,
+    );
 }
