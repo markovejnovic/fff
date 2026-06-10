@@ -435,3 +435,93 @@ fn vs_rg_heading_max_count() {
     dir.with_project(&PROJECT);
     assert_rg_match(&dir, &["--color=never", "--heading", "-n", "-m1", "fn"], true);
 }
+
+// --- context mode: fff-rg vs rg comparison tests ---
+
+#[test]
+fn vs_rg_after_context() {
+    let dir = Dir::new("vs_ctx_after");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-A2", "fn main"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_before_context() {
+    let dir = Dir::new("vs_ctx_before");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-B2", "fn main"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_symmetric_context() {
+    let dir = Dir::new("vs_ctx_sym");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-C2", "HashMap"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_asymmetric_context() {
+    let dir = Dir::new("vs_ctx_asym");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-B1", "-A3", "HashMap"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_context_heading() {
+    let dir = Dir::new("vs_ctx_heading");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--heading", "-n", "-C1", "fn"],
+        true,
+    );
+}
+
+#[test]
+fn vs_rg_context_overlapping() {
+    let dir = Dir::new("vs_ctx_overlap");
+    dir.create("dense.txt", "a\nMATCH\nb\nMATCH\nc\n");
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-H", "-C1", "MATCH", "dense.txt"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_context_at_boundaries() {
+    let dir = Dir::new("vs_ctx_boundary");
+    dir.create("edges.txt", "MATCH\na\nb\nc\nd\ne\nMATCH\n");
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-H", "-C2", "MATCH", "edges.txt"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_context_separator() {
+    let dir = Dir::new("vs_ctx_sep");
+    dir.create("distant.txt", "MATCH\na\nb\nc\nd\ne\nf\nMATCH\n");
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-H", "-C1", "MATCH", "distant.txt"],
+        false,
+    );
+}
