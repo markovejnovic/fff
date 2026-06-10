@@ -671,3 +671,163 @@ fn vs_rg_color_files_with_matches() {
         false,
     );
 }
+
+// --- regex patterns: fff-rg vs rg ---
+
+#[test]
+fn vs_rg_regex_alternation() {
+    let dir = Dir::new("vs_re_alt");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "HashMap|Config"], false);
+}
+
+#[test]
+fn vs_rg_regex_quantifier() {
+    let dir = Dir::new("vs_re_quant");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "fn\\s+\\w+"], false);
+}
+
+#[test]
+fn vs_rg_regex_anchor() {
+    let dir = Dir::new("vs_re_anchor");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "^use"], false);
+}
+
+#[test]
+fn vs_rg_regex_char_class() {
+    let dir = Dir::new("vs_re_class");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "assert[_!]"], false);
+}
+
+#[test]
+fn vs_rg_fixed_special_chars() {
+    let dir = Dir::new("vs_fixed_special");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-F", "HashMap"], false);
+}
+
+#[test]
+fn vs_rg_fixed_parens() {
+    let dir = Dir::new("vs_fixed_parens");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-F", "Config::new"], false);
+}
+
+// --- unicode content: fff-rg vs rg ---
+
+#[test]
+fn vs_rg_unicode_latin_extended() {
+    let dir = Dir::new("vs_uni_latin");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "café"], false);
+}
+
+#[test]
+fn vs_rg_unicode_cjk() {
+    let dir = Dir::new("vs_uni_cjk");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "日本語"], false);
+}
+
+#[test]
+fn vs_rg_unicode_case_insensitive() {
+    let dir = Dir::new("vs_uni_ci");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-i", "prójéct"], false);
+}
+
+#[test]
+fn vs_rg_unicode_vimgrep() {
+    let dir = Dir::new("vs_uni_vg");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--vimgrep", "café"], false);
+}
+
+// --- edge cases: fff-rg vs rg ---
+
+#[test]
+fn vs_rg_empty_file() {
+    let dir = Dir::new("vs_edge_empty");
+    dir.create("empty.txt", "");
+    dir.create("notempty.txt", "hello\n");
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "hello"], false);
+}
+
+#[test]
+fn vs_rg_no_trailing_newline() {
+    let dir = Dir::new("vs_edge_nonl");
+    dir.create("data.txt", "hello world");
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-H", "hello", "data.txt"], false);
+}
+
+#[test]
+fn vs_rg_single_line_file() {
+    let dir = Dir::new("vs_edge_single");
+    dir.create("one.txt", "single line\n");
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-H", "-C2", "single", "one.txt"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_deeply_nested() {
+    let dir = Dir::new("vs_edge_deep");
+    dir.create("a/b/c/d/deep.txt", "hello from the deep\n");
+    dir.create("shallow.txt", "hello from shallow\n");
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "hello"], false);
+}
+
+// --- multi-flag combos: fff-rg vs rg ---
+
+#[test]
+fn vs_rg_combo_trim_context_linenums() {
+    let dir = Dir::new("vs_combo_tcl");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "--trim", "-n", "-C1", "HashMap"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_combo_count_case_insensitive() {
+    let dir = Dir::new("vs_combo_cci");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-c", "-i", "self"], false);
+}
+
+#[test]
+fn vs_rg_combo_maxcount_context() {
+    let dir = Dir::new("vs_combo_mcc");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-m1", "-C1", "HashMap"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_combo_heading_context_column() {
+    let dir = Dir::new("vs_combo_hcc");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--heading", "-n", "--column", "-C1", "Config"],
+        true,
+    );
+}
+
+#[test]
+fn vs_rg_combo_vimgrep_fixed_case() {
+    let dir = Dir::new("vs_combo_vfc");
+    dir.with_project(&PROJECT);
+    // Use "verbose" — appears once per line (avoids vimgrep multi-match-per-line divergence)
+    assert_rg_match(&dir, &["--color=never", "--vimgrep", "-F", "-i", "verbose"], false);
+}
