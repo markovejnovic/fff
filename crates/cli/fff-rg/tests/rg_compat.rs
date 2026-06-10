@@ -605,3 +605,60 @@ fn vs_rg_files_with_matches_no_match() {
     dir.with_project(&PROJECT);
     assert_rg_match(&dir, &["--color=never", "-l", "ZZZZZ_NEVER_MATCHES"], false);
 }
+
+// --- color output: fff-rg vs rg ANSI comparison tests ---
+
+#[test]
+fn vs_rg_color_inline() {
+    let dir = Dir::new("vs_color_inline");
+    dir.create("data.txt", "hello world\nfoo bar\nhello again\n");
+    assert_rg_match(
+        &dir,
+        &["--color=always", "--no-heading", "-n", "hello", "data.txt"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_color_heading() {
+    let dir = Dir::new("vs_color_heading");
+    dir.create("data.txt", "hello world\nfoo bar\nhello again\n");
+    assert_rg_match(
+        &dir,
+        &["--color=always", "--heading", "-n", "hello", "data.txt"],
+        true,
+    );
+}
+
+#[test]
+fn vs_rg_color_column() {
+    let dir = Dir::new("vs_color_column");
+    dir.create("data.txt", "hello world\n");
+    assert_rg_match(
+        &dir,
+        &["--color=always", "--no-heading", "-n", "--column", "hello", "data.txt"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_color_count() {
+    let dir = Dir::new("vs_color_count");
+    dir.create("data.txt", "hello\nhello\n");
+    assert_rg_match(
+        &dir,
+        &["--color=always", "--no-heading", "-c", "hello", "data.txt"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_color_files_with_matches() {
+    let dir = Dir::new("vs_color_files");
+    dir.create("data.txt", "hello\n");
+    assert_rg_match(
+        &dir,
+        &["--color=always", "-l", "hello", "data.txt"],
+        false,
+    );
+}
