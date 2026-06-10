@@ -14,8 +14,7 @@ use fff_ipc_domain::OutputFlags;
 // ANSI escape sequences matching rg's default color scheme.
 const MAGENTA: &str = "\x1b[35m";
 const GREEN: &str = "\x1b[32m";
-const CYAN: &str = "\x1b[36m";
-const RED_BOLD: &str = "\x1b[1;31m";
+const RED_BOLD: &str = "\x1b[1m\x1b[31m";
 const RESET: &str = "\x1b[0m";
 
 /// Writes search results to a buffered sink, formatting according to [`OutputFlags`].
@@ -121,7 +120,7 @@ impl<W: Write> ResultWriter<W> {
     /// Writes a file path, magenta when color is on.
     fn write_path(&mut self, path: &str) -> std::io::Result<()> {
         if self.cfg.contains(OutputFlags::COLOR) {
-            write!(self.out, "{MAGENTA}{path}{RESET}")
+            write!(self.out, "{RESET}{MAGENTA}{path}{RESET}")
         } else {
             write!(self.out, "{path}")
         }
@@ -131,7 +130,7 @@ impl<W: Write> ResultWriter<W> {
     fn write_line_number(&mut self, n: u64, sep: char) -> std::io::Result<()> {
         if self.cfg.contains(OutputFlags::LINE_NUMBER) {
             if self.cfg.contains(OutputFlags::COLOR) {
-                write!(self.out, "{GREEN}{n}{RESET}{sep}")
+                write!(self.out, "{RESET}{GREEN}{n}{RESET}{sep}")
             } else {
                 write!(self.out, "{n}{sep}")
             }
@@ -154,7 +153,7 @@ impl<W: Write> ResultWriter<W> {
         if self.cfg.contains(OutputFlags::COLUMN) {
             let col = m.col + 1;
             if self.cfg.contains(OutputFlags::COLOR) {
-                write!(self.out, "{CYAN}{col}{RESET}:")?;
+                write!(self.out, "{RESET}{col}{RESET}:")?;
             } else {
                 write!(self.out, "{col}:")?;
             }
@@ -177,7 +176,7 @@ impl<W: Write> ResultWriter<W> {
                 self.out.write_all(&bytes[pos..s.min(bytes.len())])?;
             }
             if s < e {
-                write!(self.out, "{RED_BOLD}")?;
+                write!(self.out, "{RESET}{RED_BOLD}")?;
                 self.out.write_all(&bytes[s..e])?;
                 write!(self.out, "{RESET}")?;
             }
@@ -284,7 +283,7 @@ impl<W: Write> ResultWriter<W> {
             let path = result.files[*file_idx].relative_path(picker);
             if self.cfg.contains(OutputFlags::WITH_FILENAME) {
                 if self.cfg.contains(OutputFlags::COLOR) {
-                    writeln!(self.out, "{MAGENTA}{path}{RESET}:{count}")?;
+                    writeln!(self.out, "{RESET}{MAGENTA}{path}{RESET}:{count}")?;
                 } else {
                     writeln!(self.out, "{path}:{count}")?;
                 }

@@ -3,8 +3,10 @@ mod hay;
 #[path = "rg_compat/util.rs"]
 mod util;
 
-use hay::SHERLOCK;
-use util::Dir;
+use std::process::Command;
+
+use hay::{PROJECT, SHERLOCK};
+use util::{Dir, assert_rg_match, find_binary, normalize_inline};
 
 #[test]
 fn smoke_basic_search() {
@@ -299,4 +301,664 @@ fn max_count() {
     let lines: Vec<&str> = out.lines().filter(|l| *l != "--").collect();
     assert_eq!(lines.len(), 1, "max-count 1 should return 1 line, got: {out}");
     assert!(lines[0].contains("Sherlock"));
+}
+
+// --- inline mode: fff-rg vs rg comparison tests ---
+
+#[test]
+fn vs_rg_inline_basic() {
+    let dir = Dir::new("vs_inline_basic");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "fn"], false);
+}
+
+#[test]
+fn vs_rg_inline_line_numbers() {
+    let dir = Dir::new("vs_inline_ln");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-n", "fn"], false);
+}
+
+#[test]
+fn vs_rg_inline_column() {
+    let dir = Dir::new("vs_inline_col");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-n", "--column", "fn"], false);
+}
+
+#[test]
+fn vs_rg_inline_no_filename() {
+    let dir = Dir::new("vs_inline_nofile");
+    dir.create("solo.txt", "hello world\nfoo bar\nhello again\n");
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-I", "-n", "hello", "solo.txt"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_inline_case_insensitive() {
+    let dir = Dir::new("vs_inline_ci");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-i", "config"], false);
+}
+
+#[test]
+fn vs_rg_inline_case_sensitive() {
+    let dir = Dir::new("vs_inline_cs");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-s", "Config"], false);
+}
+
+#[test]
+fn vs_rg_inline_smart_case_lower() {
+    let dir = Dir::new("vs_inline_sc_lo");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-S", "config"], false);
+}
+
+#[test]
+fn vs_rg_inline_smart_case_upper() {
+    let dir = Dir::new("vs_inline_sc_up");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-S", "Config"], false);
+}
+
+#[test]
+fn vs_rg_inline_fixed_strings() {
+    let dir = Dir::new("vs_inline_fixed");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-F", "HashMap"], false);
+}
+
+#[test]
+fn vs_rg_inline_count() {
+    let dir = Dir::new("vs_inline_count");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-c", "fn"], false);
+}
+
+#[test]
+fn vs_rg_inline_files_with_matches() {
+    let dir = Dir::new("vs_inline_files");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-l", "fn"], false);
+}
+
+#[test]
+fn vs_rg_inline_max_count() {
+    let dir = Dir::new("vs_inline_maxc");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-m1", "fn"], false);
+}
+
+#[test]
+fn vs_rg_inline_trim() {
+    let dir = Dir::new("vs_inline_trim");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "--trim", "let"], false);
+}
+
+// --- heading mode: fff-rg vs rg comparison tests ---
+
+#[test]
+fn vs_rg_heading_basic() {
+    let dir = Dir::new("vs_heading_basic");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--heading", "fn"], true);
+}
+
+#[test]
+fn vs_rg_heading_line_numbers() {
+    let dir = Dir::new("vs_heading_ln");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--heading", "-n", "fn"], true);
+}
+
+#[test]
+fn vs_rg_heading_column() {
+    let dir = Dir::new("vs_heading_col");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--heading", "-n", "--column", "Config"], true);
+}
+
+#[test]
+fn vs_rg_heading_count() {
+    let dir = Dir::new("vs_heading_count");
+    dir.with_project(&PROJECT);
+    // -c produces one line per file, no heading blocks — normalize as inline
+    assert_rg_match(&dir, &["--color=never", "--heading", "-c", "fn"], false);
+}
+
+#[test]
+fn vs_rg_heading_max_count() {
+    let dir = Dir::new("vs_heading_maxc");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--heading", "-n", "-m1", "fn"], true);
+}
+
+// --- context mode: fff-rg vs rg comparison tests ---
+
+#[test]
+fn vs_rg_after_context() {
+    let dir = Dir::new("vs_ctx_after");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-A2", "fn main"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_before_context() {
+    let dir = Dir::new("vs_ctx_before");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-B2", "fn main"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_symmetric_context() {
+    let dir = Dir::new("vs_ctx_sym");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-C2", "HashMap"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_asymmetric_context() {
+    let dir = Dir::new("vs_ctx_asym");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-B1", "-A3", "HashMap"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_context_heading() {
+    let dir = Dir::new("vs_ctx_heading");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--heading", "-n", "-C1", "fn"],
+        true,
+    );
+}
+
+#[test]
+fn vs_rg_context_overlapping() {
+    let dir = Dir::new("vs_ctx_overlap");
+    dir.create("dense.txt", "a\nMATCH\nb\nMATCH\nc\n");
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-H", "-C1", "MATCH", "dense.txt"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_context_at_boundaries() {
+    let dir = Dir::new("vs_ctx_boundary");
+    dir.create("edges.txt", "MATCH\na\nb\nc\nd\ne\nMATCH\n");
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-H", "-C2", "MATCH", "edges.txt"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_context_separator() {
+    let dir = Dir::new("vs_ctx_sep");
+    dir.create("distant.txt", "MATCH\na\nb\nc\nd\ne\nf\nMATCH\n");
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-H", "-C1", "MATCH", "distant.txt"],
+        false,
+    );
+}
+
+// --- vimgrep mode: fff-rg vs rg comparison tests ---
+
+#[test]
+fn vs_rg_vimgrep_basic() {
+    let dir = Dir::new("vs_vimgrep_basic");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--vimgrep", "Config"], false);
+}
+
+#[test]
+fn vs_rg_vimgrep_regex() {
+    let dir = Dir::new("vs_vimgrep_regex");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--vimgrep", "fn\\s+\\w+"], false);
+}
+
+#[test]
+fn vs_rg_vimgrep_fixed() {
+    let dir = Dir::new("vs_vimgrep_fixed");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--vimgrep", "-F", "pub fn"], false);
+}
+
+#[test]
+fn vs_rg_vimgrep_case_insensitive() {
+    let dir = Dir::new("vs_vimgrep_ci");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--vimgrep", "-i", "hashmap"], false);
+}
+
+// --- quiet mode and exit code comparison tests ---
+
+#[test]
+fn vs_rg_quiet_match() {
+    let dir = Dir::new("vs_quiet_match");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "-q", "fn"], false);
+}
+
+#[test]
+fn vs_rg_quiet_no_match() {
+    let dir = Dir::new("vs_quiet_nomatch");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "-q", "ZZZZZ_NEVER_MATCHES"], false);
+}
+
+#[test]
+fn vs_rg_exit_code_match() {
+    let dir = Dir::new("vs_exit_match");
+    dir.with_project(&PROJECT);
+    let fff = dir.command().args(&["--color=never", "fn"]).full_output();
+    let rg = dir.rg().args(&["--color=never", "fn"]).full_output();
+    assert_eq!(fff.code, 0, "fff-rg should exit 0 on match");
+    assert_eq!(rg.code, 0, "rg should exit 0 on match");
+}
+
+#[test]
+fn vs_rg_exit_code_no_match() {
+    let dir = Dir::new("vs_exit_nomatch");
+    dir.with_project(&PROJECT);
+    let fff = dir.command().args(&["--color=never", "ZZZZZ"]).full_output();
+    let rg = dir.rg().args(&["--color=never", "ZZZZZ"]).full_output();
+    assert_eq!(fff.code, 1, "fff-rg should exit 1 on no match");
+    assert_eq!(rg.code, 1, "rg should exit 1 on no match");
+}
+
+#[test]
+fn vs_rg_count_no_match() {
+    let dir = Dir::new("vs_count_nomatch");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "-c", "ZZZZZ_NEVER_MATCHES"], false);
+}
+
+#[test]
+fn vs_rg_files_with_matches_no_match() {
+    let dir = Dir::new("vs_files_nomatch");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "-l", "ZZZZZ_NEVER_MATCHES"], false);
+}
+
+// --- color output: fff-rg vs rg ANSI comparison tests ---
+
+#[test]
+fn vs_rg_color_inline() {
+    let dir = Dir::new("vs_color_inline");
+    dir.create("data.txt", "hello world\nfoo bar\nhello again\n");
+    // -H forces filename even for single file (avoids rg's single-file filename omission)
+    assert_rg_match(
+        &dir,
+        &["--color=always", "--no-heading", "-n", "-H", "hello", "data.txt"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_color_heading() {
+    let dir = Dir::new("vs_color_heading");
+    dir.create("data.txt", "hello world\nfoo bar\nhello again\n");
+    assert_rg_match(
+        &dir,
+        &["--color=always", "--heading", "-n", "-H", "hello", "data.txt"],
+        true,
+    );
+}
+
+#[test]
+fn vs_rg_color_column() {
+    let dir = Dir::new("vs_color_column");
+    dir.create("data.txt", "hello world\n");
+    assert_rg_match(
+        &dir,
+        &["--color=always", "--no-heading", "-n", "--column", "-H", "hello", "data.txt"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_color_count() {
+    let dir = Dir::new("vs_color_count");
+    dir.create("data.txt", "hello\nhello\n");
+    assert_rg_match(
+        &dir,
+        &["--color=always", "--no-heading", "-c", "-H", "hello", "data.txt"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_color_files_with_matches() {
+    let dir = Dir::new("vs_color_files");
+    dir.create("data.txt", "hello\n");
+    assert_rg_match(
+        &dir,
+        &["--color=always", "-l", "-H", "hello", "data.txt"],
+        false,
+    );
+}
+
+// --- regex patterns: fff-rg vs rg ---
+
+#[test]
+fn vs_rg_regex_alternation() {
+    let dir = Dir::new("vs_re_alt");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "HashMap|Config"], false);
+}
+
+#[test]
+fn vs_rg_regex_quantifier() {
+    let dir = Dir::new("vs_re_quant");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "fn\\s+\\w+"], false);
+}
+
+#[test]
+fn vs_rg_regex_anchor() {
+    let dir = Dir::new("vs_re_anchor");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "^use"], false);
+}
+
+#[test]
+fn vs_rg_regex_char_class() {
+    let dir = Dir::new("vs_re_class");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "assert[_!]"], false);
+}
+
+#[test]
+fn vs_rg_fixed_special_chars() {
+    let dir = Dir::new("vs_fixed_special");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-F", "HashMap"], false);
+}
+
+#[test]
+fn vs_rg_fixed_parens() {
+    let dir = Dir::new("vs_fixed_parens");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-F", "Config::new"], false);
+}
+
+// --- unicode content: fff-rg vs rg ---
+
+#[test]
+fn vs_rg_unicode_latin_extended() {
+    let dir = Dir::new("vs_uni_latin");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "café"], false);
+}
+
+#[test]
+fn vs_rg_unicode_cjk() {
+    let dir = Dir::new("vs_uni_cjk");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "日本語"], false);
+}
+
+#[test]
+fn vs_rg_unicode_case_insensitive() {
+    let dir = Dir::new("vs_uni_ci");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-i", "prójéct"], false);
+}
+
+#[test]
+fn vs_rg_unicode_vimgrep() {
+    let dir = Dir::new("vs_uni_vg");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--vimgrep", "café"], false);
+}
+
+// --- edge cases: fff-rg vs rg ---
+
+#[test]
+fn vs_rg_empty_file() {
+    let dir = Dir::new("vs_edge_empty");
+    dir.create("empty.txt", "");
+    dir.create("notempty.txt", "hello\n");
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "hello"], false);
+}
+
+#[test]
+fn vs_rg_no_trailing_newline() {
+    let dir = Dir::new("vs_edge_nonl");
+    dir.create("data.txt", "hello world");
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-H", "hello", "data.txt"], false);
+}
+
+#[test]
+fn vs_rg_single_line_file() {
+    let dir = Dir::new("vs_edge_single");
+    dir.create("one.txt", "single line\n");
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-H", "-C2", "single", "one.txt"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_deeply_nested() {
+    let dir = Dir::new("vs_edge_deep");
+    dir.create("a/b/c/d/deep.txt", "hello from the deep\n");
+    dir.create("shallow.txt", "hello from shallow\n");
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "hello"], false);
+}
+
+// --- multi-flag combos: fff-rg vs rg ---
+
+#[test]
+fn vs_rg_combo_trim_context_linenums() {
+    let dir = Dir::new("vs_combo_tcl");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "--trim", "-n", "-C1", "HashMap"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_combo_count_case_insensitive() {
+    let dir = Dir::new("vs_combo_cci");
+    dir.with_project(&PROJECT);
+    assert_rg_match(&dir, &["--color=never", "--no-heading", "-c", "-i", "self"], false);
+}
+
+#[test]
+fn vs_rg_combo_maxcount_context() {
+    let dir = Dir::new("vs_combo_mcc");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--no-heading", "-n", "-m1", "-C1", "HashMap"],
+        false,
+    );
+}
+
+#[test]
+fn vs_rg_combo_heading_context_column() {
+    let dir = Dir::new("vs_combo_hcc");
+    dir.with_project(&PROJECT);
+    assert_rg_match(
+        &dir,
+        &["--color=never", "--heading", "-n", "--column", "-C1", "Config"],
+        true,
+    );
+}
+
+#[test]
+fn vs_rg_combo_vimgrep_fixed_case() {
+    let dir = Dir::new("vs_combo_vfc");
+    dir.with_project(&PROJECT);
+    // Use "verbose" — appears once per line (avoids vimgrep multi-match-per-line divergence)
+    assert_rg_match(&dir, &["--color=never", "--vimgrep", "-F", "-i", "verbose"], false);
+}
+
+// --- session reuse: warm index consistency ---
+
+#[test]
+fn session_reuse_consistent_results() {
+    let dir = Dir::new("session_reuse");
+    dir.with_project(&PROJECT);
+    let args = &["--color=never", "--no-heading", "-n", "fn"];
+
+    let out1 = dir.command().args(args).full_output();
+    let out2 = dir.command().args(args).full_output();
+    let out3 = dir.command().args(args).full_output();
+
+    assert_eq!(out1.code, out2.code);
+    assert_eq!(out2.code, out3.code);
+
+    let n1 = normalize_inline(&out1.stdout);
+    let n2 = normalize_inline(&out2.stdout);
+    let n3 = normalize_inline(&out3.stdout);
+    assert_eq!(n1, n2, "warm index should return same results as cold");
+    assert_eq!(n2, n3);
+}
+
+#[test]
+fn session_reuse_different_queries() {
+    let dir = Dir::new("session_diff_q");
+    dir.with_project(&PROJECT);
+
+    let out_fn = dir.command().args(&["--color=never", "--no-heading", "fn"]).full_output();
+    let out_config = dir.command().args(&["--color=never", "--no-heading", "Config"]).full_output();
+    let out_none = dir.command().args(&["--color=never", "--no-heading", "ZZZZNOTFOUND"]).full_output();
+
+    assert_eq!(out_fn.code, 0);
+    assert_eq!(out_config.code, 0);
+    assert_eq!(out_none.code, 1);
+    assert!(out_fn.stdout.contains("fn"));
+    assert!(out_config.stdout.contains("Config"));
+    assert!(out_none.stdout.is_empty());
+}
+
+#[test]
+fn session_reuse_alternating_modes() {
+    let dir = Dir::new("session_modes");
+    dir.with_project(&PROJECT);
+
+    let grep1 = dir.command().args(&["--color=never", "--no-heading", "fn"]).full_output();
+    let files = dir.command().args(&["--color=never", "--files"]).full_output();
+    let grep2 = dir.command().args(&["--color=never", "--no-heading", "fn"]).full_output();
+
+    assert_eq!(grep1.code, 0);
+    assert_eq!(files.code, 0);
+    assert_eq!(grep2.code, 0);
+    assert_eq!(
+        normalize_inline(&grep1.stdout),
+        normalize_inline(&grep2.stdout),
+        "grep results should be stable across interleaved files queries"
+    );
+}
+
+// --- concurrency: parallel searches ---
+
+#[test]
+fn concurrent_searches_no_corruption() {
+    let dir = Dir::new("concurrent");
+    dir.with_project(&PROJECT);
+    let dir_path = dir.dir.clone();
+
+    let handles: Vec<_> = (0..8)
+        .map(|i| {
+            let path = dir_path.clone();
+            std::thread::spawn(move || {
+                let bin = find_binary("fff-rg");
+                let output = Command::new(&bin)
+                    .current_dir(&path)
+                    .args(["--color=never", "--no-heading", "-n", "fn"])
+                    .output()
+                    .unwrap();
+                let stdout = String::from_utf8(output.stdout).unwrap();
+                let code = output.status.code().unwrap_or(-1);
+                (i, stdout, code)
+            })
+        })
+        .collect();
+
+    let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+
+    for (i, _, code) in &results {
+        assert_eq!(*code, 0, "thread {i} got exit code {code}");
+    }
+
+    let normalized: Vec<String> = results.iter().map(|(_, out, _)| normalize_inline(out)).collect();
+    for (i, norm) in normalized.iter().enumerate().skip(1) {
+        assert_eq!(
+            &normalized[0], norm,
+            "thread {i} output differs from thread 0"
+        );
+    }
+}
+
+// --- files mode ---
+
+#[test]
+fn vs_rg_files_list() {
+    let dir = Dir::new("vs_files_list");
+    dir.with_project(&PROJECT);
+    let fff = dir.command().args(&["--color=never", "--files"]).full_output();
+    let rg = dir.rg().args(&["--color=never", "--files"]).full_output();
+
+    assert_eq!(fff.code, rg.code, "exit code mismatch");
+
+    let mut fff_lines: Vec<&str> = fff.stdout.lines().collect();
+    let mut rg_lines: Vec<&str> = rg.stdout.lines().collect();
+    fff_lines.sort();
+    rg_lines.sort();
+    assert_eq!(fff_lines, rg_lines, "file listings differ\nfff: {fff_lines:?}\nrg: {rg_lines:?}");
+}
+
+#[test]
+fn files_mode_subdirectories() {
+    let dir = Dir::new("files_subdirs");
+    dir.with_project(&PROJECT);
+    let out = dir.command().args(&["--color=never", "--files"]).full_output();
+    assert_eq!(out.code, 0);
+    let files: Vec<&str> = out.stdout.lines().collect();
+    assert!(files.iter().any(|f| f.contains("src/")), "should find files in src/, got: {files:?}");
+    assert!(files.iter().any(|f| f.contains("tests/")), "should find files in tests/, got: {files:?}");
+    assert!(files.iter().any(|f| f.contains("data/")), "should find files in data/, got: {files:?}");
+}
+
+#[test]
+fn files_mode_quiet() {
+    let dir = Dir::new("files_quiet");
+    dir.with_project(&PROJECT);
+    let out = dir.command().args(&["--color=never", "--files", "-q"]).full_output();
+    assert!(out.stdout.is_empty(), "quiet files should produce no output");
+    assert_eq!(out.code, 0);
 }
