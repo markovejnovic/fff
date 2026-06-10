@@ -128,3 +128,25 @@ bar foo baz foo
 ";
 
 pub const NO_NEWLINE: &str = "last line has no newline";
+
+pub struct Hay {
+    pub rust_main: &'static str,
+    pub rust_lib: &'static str,
+    pub rust_test: &'static str,
+    pub json_config: &'static str,
+    pub unicode_readme: &'static str,
+    pub indented: &'static str,
+    pub repeated: &'static str,
+    pub no_newline: &'static str,
+}
+
+pub const PROJECT: Hay = Hay {
+    rust_main: RUST_MAIN,
+    rust_lib: RUST_LIB,
+    rust_test: RUST_TEST,
+    json_config: JSON_CONFIG,
+    unicode_readme: UNICODE_README,
+    indented: INDENTED,
+    repeated: REPEATED,
+    no_newline: NO_NEWLINE,
+};

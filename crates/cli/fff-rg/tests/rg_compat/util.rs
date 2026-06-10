@@ -101,6 +101,19 @@ impl Dir {
         cmd.current_dir(&self.dir);
         TestCommand { cmd, dir: self.dir.clone() }
     }
+
+    pub fn with_project(&self, hay: &crate::hay::Hay) -> &Self {
+        self.create("src/main.rs", hay.rust_main);
+        self.create("src/lib.rs", hay.rust_lib);
+        self.create("tests/config_test.rs", hay.rust_test);
+        self.create("config.json", hay.json_config);
+        self.create("README.md", hay.unicode_readme);
+        self.create("src/indented.rs", hay.indented);
+        self.create("data/repeated.txt", hay.repeated);
+        self.create("data/no_newline.txt", hay.no_newline);
+        self.create("empty.txt", "");
+        self
+    }
 }
 
 impl Drop for Dir {
